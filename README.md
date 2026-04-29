@@ -65,7 +65,7 @@ python main.py
 
 ```env
 TELEGRAM_TOKEN=your-telegram-bot-token
-ALLOWED_TELEGRAM_USER_ID=6677896612
+ALLOWED_TELEGRAM_USER_ID=123456789
 OPENROUTER_API_KEY=your-openrouter-api-key
 OPENROUTER_MODEL=openai/gpt-oss-120b:free
 MONGODB_URI=mongodb+srv://USERNAME:PASSWORD@cluster0.example.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
