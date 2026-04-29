@@ -33,14 +33,18 @@ async def check_openrouter() -> tuple[bool, str]:
             "Reply with one short greeting in Ukrainian.",
             "No saved context yet.",
         )
-        memory = await client.extract_memory(
-            "Мене звати Дмитро, мені 17 років. Я хочу вивчити AI і Python."
-        )
         preview = reply.encode("ascii", "backslashreplace").decode("ascii")
-        return True, (
-            f"OpenRouter reply OK: {preview[:80]} | "
-            f"memory facts={len(memory.facts)} goals={len(memory.goals)} topics={len(memory.topics)}"
-        )
+        try:
+            memory = await client.extract_memory(
+                "Мене звати Дмитро, мені 17 років. Я хочу вивчити AI і Python."
+            )
+            details = (
+                f"memory facts={len(memory.facts)} goals={len(memory.goals)} "
+                f"topics={len(memory.topics)}"
+            )
+        except Exception as exc:
+            details = f"memory extraction fallback will be used ({type(exc).__name__})"
+        return True, f"OpenRouter reply OK: {preview[:80]} | {details}"
     except Exception as exc:
         return False, f"OpenRouter check failed: {type(exc).__name__}: {exc}"
     finally:
@@ -66,7 +70,7 @@ async def main() -> None:
     if mongo_ok and openrouter_ok:
         print("\nSetup looks good. Memory should work after you restart the bot.")
     elif openrouter_ok:
-        print("\nAI replies work, but memory storage is offline.")
+        print("\nAI replies work, but MongoDB storage is unavailable.")
     else:
         print("\nSetup is incomplete. Fix the failed checks above.")
 

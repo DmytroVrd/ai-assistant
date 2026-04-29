@@ -1,5 +1,7 @@
 .env
 .venv/
+.venv311/
+.venv311b/
 __pycache__/
 .pytest_cache/
 .idea/
