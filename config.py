@@ -21,7 +21,7 @@ class Settings(BaseModel):
     mongodb_timeout_ms: int = Field(default=1500, alias="MONGODB_TIMEOUT_MS")
     app_name: str = Field(default="telegram-ai-assistant", alias="APP_NAME")
     openrouter_site_url: str = Field(default="https://github.com/your-username/telegram-ai-assistant", alias="OPENROUTER_SITE_URL")
-    default_language: str = Field(default="uk", alias="DEFAULT_LANGUAGE")
+    default_language: str = Field(default="en", alias="DEFAULT_LANGUAGE")
     default_tone: str = Field(default="friendly", alias="DEFAULT_TONE")
     history_window: int = Field(default=20, alias="HISTORY_WINDOW")
     request_timeout_seconds: float = Field(default=45, alias="REQUEST_TIMEOUT_SECONDS")

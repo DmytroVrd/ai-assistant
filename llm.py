@@ -29,17 +29,19 @@ class OpenRouterClient:
     async def close(self) -> None:
         await self._client.aclose()
 
-    async def generate_reply(self, user_message: str, user_context: str) -> str:
+    async def generate_reply(self, user_message: str, user_context: str, *, language: str = "en") -> str:
+        response_language = "Ukrainian" if language == "uk" else "English"
+        empty_context = "Поки що контекст порожній." if language == "uk" else "No saved context yet."
         system_prompt = (
-            "Ти теплий і практичний Telegram AI-асистент з пам'яттю. "
-            "Використовуй збережений контекст лише коли він справді доречний. "
-            "Не вигадуй фактів, яких немає в контексті. "
-            "Відповідай українською, якщо користувач явно не просить іншу мову. "
-            "Тримай відповіді природними, дружніми і не надто довгими."
+            "You are a warm, practical Telegram AI assistant with memory. "
+            "Use saved context only when it is actually relevant. "
+            "Do not invent facts that are not in the context. "
+            f"Reply in {response_language} unless the user explicitly asks for another language. "
+            "Keep answers natural, friendly, and not too long."
         )
         user_prompt = (
-            f"Контекст користувача:\n{user_context or 'Поки що контекст порожній.'}\n\n"
-            f"Повідомлення користувача:\n{user_message}"
+            f"User context:\n{user_context or empty_context}\n\n"
+            f"User message:\n{user_message}"
         )
         payload = {
             "model": self._settings.openrouter_model,
@@ -59,14 +61,14 @@ class OpenRouterClient:
 
     async def extract_memory(self, user_message: str) -> ExtractedMemory:
         prompt = (
-            "Витягни тільки стабільні факти про користувача з повідомлення. "
-            "Поверни JSON рівно такого виду: "
-            '{"facts": ["..."], "goals": ["..."], "preferences": {"tone": "..."}, "topics": ["..."]}. '
-            "facts: короткі факти про користувача. "
-            "goals: цілі або наміри користувача. "
-            "preferences: тільки стабільні вподобання. "
-            "topics: короткі теми повідомлення. "
-            "Якщо важливої інформації немає, поверни порожні масиви і порожній об’єкт."
+            "Extract only stable facts about the user from the message. "
+            'Return JSON exactly in this shape: {"facts": ["..."], "goals": ["..."], '
+            '"preferences": {"tone": "..."}, "topics": ["..."]}. '
+            "facts: short facts about the user. "
+            "goals: user goals or intentions. "
+            "preferences: only stable preferences. "
+            "topics: short message topics. "
+            "If nothing important is present, return empty arrays and an empty object."
         )
         payload = {
             "model": self._settings.openrouter_model,

@@ -16,6 +16,15 @@ TOPIC_PATTERNS = {
     r"(?<!\w)langchain(?!\w)": "LangChain",
 }
 
+NOISE_GOAL_PATTERNS = (
+    "дізнатися, як його звуть",
+    "дізнатися як його звуть",
+    "find out his name",
+    "find out what his name is",
+    "remember his name",
+    "what his name is",
+)
+
 
 def _normalize(items: list[str]) -> list[str]:
     seen: set[str] = set()
@@ -41,6 +50,11 @@ def _sentence_case(value: str) -> str:
     return cleaned[0].upper() + cleaned[1:]
 
 
+def _is_noise_goal(value: str) -> bool:
+    lowered = value.casefold().strip()
+    return any(pattern in lowered for pattern in NOISE_GOAL_PATTERNS)
+
+
 def heuristic_extract_facts(message_text: str) -> ExtractedMemory:
     text = re.sub(r"\s+", " ", message_text.strip())
     lowered = text.casefold()
@@ -50,8 +64,7 @@ def heuristic_extract_facts(message_text: str) -> ExtractedMemory:
     preferences: dict[str, str] = {}
 
     name_match = re.search(
-        "\u043c\u0435\u043d\u0435 \u0437\u0432\u0430\u0442\u0438\\s+"
-        "([A-Z\u0410-\u042f\u0406\u0407\u0404\u0490][\\w'\\u2019-]{1,30})",
+        r"(?:мене звати|my name is)\s+([A-ZА-ЯІЇЄҐ][\w'\u2019-]{1,30})",
         text,
         flags=re.IGNORECASE,
     )
@@ -59,43 +72,51 @@ def heuristic_extract_facts(message_text: str) -> ExtractedMemory:
         facts.append(f"User's name is {name_match.group(1)}")
 
     age_match = re.search(
-        "\u043c\u0435\u043d\u0456\\s+(\\d{1,2})\\s*(?:\u0440\u043e\u043a\u0456\u0432|\u0440\\b)",
+        r"(?:мені\s+(\d{1,2})\s*(?:років|р\b)|i am\s+(\d{1,2})\s+years?\s+old)",
         text,
         flags=re.IGNORECASE,
     )
     if age_match:
-        facts.append(f"User is {age_match.group(1)} years old")
+        age = age_match.group(1) or age_match.group(2)
+        facts.append(f"User is {age} years old")
 
     for pattern in (
-        "(?:\u044f\\s+\u0432\u0438\u0432\u0447\u0430\u044e|\u0432\u0438\u0432\u0447\u0430\u044e)\\s+([^.!?]+)",
-        "(?:\u044f\\s+\u0446\u0456\u043a\u0430\u0432\u043b\u044e\u0441\u044f|\u0446\u0456\u043a\u0430\u0432\u043b\u044e\u0441\u044f)\\s+([^.!?]+)",
-        "(?:\u044f\\s+\u043f\u0440\u0430\u0446\u044e\u044e \u043d\u0430\u0434|\u043f\u0440\u0430\u0446\u044e\u044e \u043d\u0430\u0434)\\s+([^.!?]+)",
-        "(?:\u044f\\s+\u043b\u044e\u0431\u043b\u044e|\u043b\u044e\u0431\u043b\u044e)\\s+([^.!?]+)",
+        r"(?:я\s+вивчаю|вивчаю)\s+([^.!?]+)",
+        r"(?:я\s+цікавлюся|цікавлюся)\s+([^.!?]+)",
+        r"(?:я\s+працюю над|працюю над)\s+([^.!?]+)",
+        r"(?:я\s+люблю|люблю)\s+([^.!?]+)",
+        r"(?:i study|studying)\s+([^.!?]+)",
+        r"(?:i am interested in|interested in)\s+([^.!?]+)",
+        r"(?:i work on|working on)\s+([^.!?]+)",
+        r"(?:i like)\s+([^.!?]+)",
     ):
         match = re.search(pattern, text, flags=re.IGNORECASE)
         if match:
             facts.append(_sentence_case(match.group(1)))
 
     for pattern in (
-        "(?:\u044f\\s+\u0445\u043e\u0447\u0443|\u0445\u043e\u0447\u0443)\\s+([^.!?]+)",
-        "(?:\u044f\\s+\u043f\u043b\u0430\u043d\u0443\u044e|\u043f\u043b\u0430\u043d\u0443\u044e)\\s+([^.!?]+)",
-        "(?:\u043c\u043e\u044f\\s+\u0446\u0456\u043b\u044c\\s*(?:-|:)?|\u0446\u0456\u043b\u044c\\s*(?:-|:)?)\\s*([^.!?]+)",
+        r"(?:я\s+хочу|хочу)\s+([^.!?]+)",
+        r"(?:я\s+планую|планую)\s+([^.!?]+)",
+        r"(?:моя\s+ціль\s*(?:-|:)?|ціль\s*(?:-|:)?)\s*([^.!?]+)",
+        r"(?:i want to|want to)\s+([^.!?]+)",
+        r"(?:i plan to|plan to)\s+([^.!?]+)",
+        r"(?:my goal is|goal[: ]+)\s*([^.!?]+)",
     ):
         match = re.search(pattern, text, flags=re.IGNORECASE)
         if match:
             goals.append(_sentence_case(match.group(1)))
 
-    if "\u0443\u043a\u0440\u0430\u0457\u043d\u0441\u044c\u043a" in lowered:
+    if "українськ" in lowered:
         preferences["language"] = "uk"
-    if "\u0430\u043d\u0433\u043b\u0456\u0439\u0441\u044c\u043a" in lowered:
+    if "англійськ" in lowered or "english" in lowered:
         preferences["language"] = "en"
-    if "\u043a\u043e\u0440\u043e\u0442\u043a\u043e" in lowered:
+    if "коротко" in lowered or "briefly" in lowered or "short answer" in lowered or "keep it short" in lowered:
         preferences["answer_style"] = "short"
-    if "\u0434\u0435\u0442\u0430\u043b\u044c\u043d\u043e" in lowered:
+    if "детально" in lowered or "detailed" in lowered:
         preferences["answer_style"] = "detailed"
-    if "\u0434\u0440\u0443\u0436" in lowered or "casual" in lowered:
+    if "друж" in lowered or "casual" in lowered or "friendly" in lowered:
         preferences["tone"] = "friendly"
-    if "\u0444\u043e\u0440\u043c\u0430\u043b\u044c" in lowered:
+    if "формаль" in lowered or "formal" in lowered:
         preferences["tone"] = "formal"
 
     return ExtractedMemory(
@@ -116,7 +137,7 @@ def merge_memories(*memories: ExtractedMemory) -> ExtractedMemory:
 
     return ExtractedMemory(
         facts=_normalize(merged.facts),
-        goals=_normalize(merged.goals),
+        goals=[goal for goal in _normalize(merged.goals) if not _is_noise_goal(goal)],
         preferences=merged.preferences,
         topics=_normalize(merged.topics),
     )

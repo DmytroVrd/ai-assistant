@@ -1,18 +1,19 @@
-# Telegram AI-асистент з пам'яттю
+# Telegram AI Assistant with Memory
 
-[English version](README.en.md)
+[Українська версія](README.uk.md)
 
-Телеграм-бот на `aiogram`, який відповідає через `OpenRouter`, зберігає контекст користувача в `MongoDB` і використовує цю пам'ять для персоналізованих відповідей.
+Telegram bot built with `aiogram` that answers via `OpenRouter`, stores user context in `MongoDB`, and uses that memory to generate personalized replies.
 
-## Що вміє
+## Features
 
-- відповідає на повідомлення через LLM
-- запам'ятовує факти, цілі, теми та коротку історію діалогу
-- використовує пам'ять у наступних відповідях
-- підтримує команди `/remember`, `/forget`, `/facts`, `/summary`, `/clear`
-- працює тільки для дозволеного Telegram user id
+- answers user messages through an LLM
+- stores facts, goals, topics, and short conversation history
+- uses saved memory in later replies
+- supports `/remember`, `/forget`, `/facts`, `/summary`, `/clear`, `/language`
+- supports both English and Ukrainian bot UI
+- restricts access to an allowed Telegram user id
 
-## Стек
+## Tech stack
 
 - Python 3
 - aiogram
@@ -20,48 +21,49 @@
 - MongoDB Atlas / MongoDB
 - pytest
 
-## Архітектура
+## Architecture
 
 ```text
 Telegram -> aiogram handlers -> MongoDB context -> OpenRouter -> reply -> MongoDB update
 ```
 
-## Структура проекту
+## Project structure
 
-- `main.py` — запуск бота та реєстрація Telegram-команд
-- `config.py` — конфігурація через `.env`
-- `handlers.py` — логіка команд і обробка повідомлень
-- `db.py` — робота з MongoDB та пам'яттю
-- `llm.py` — клієнт OpenRouter
-- `memory.py` — евристики для витягування фактів
-- `schemas.py` — Pydantic-моделі
-- `scripts/check_setup.py` — швидка перевірка конфігурації
-- `tests/` — базові тести
+- `main.py` — bot startup and Telegram command registration
+- `config.py` — environment-based settings
+- `handlers.py` — commands and message handling logic
+- `i18n.py` — bot UI translations and command descriptions
+- `db.py` — MongoDB memory backend
+- `llm.py` — OpenRouter client
+- `memory.py` — heuristic fact extraction
+- `schemas.py` — Pydantic models
+- `scripts/check_setup.py` — setup smoke test
+- `tests/` — basic tests
 
-## Швидкий запуск
+## Quick start
 
-1. Створи та активуй віртуальне середовище.
-2. Встанови залежності:
+1. Create and activate a virtual environment.
+2. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Скопіюй `.env.example` у `.env`.
-4. Заповни токен Telegram-бота, ключ OpenRouter і рядок підключення до MongoDB Atlas.
-5. Перевір налаштування:
+3. Copy `.env.example` to `.env`.
+4. Fill in your Telegram bot token, OpenRouter key, and MongoDB Atlas connection string.
+5. Run the setup check:
 
 ```bash
 python scripts/check_setup.py
 ```
 
-6. Запусти бота:
+6. Start the bot:
 
 ```bash
 python main.py
 ```
 
-## Змінні середовища
+## Environment variables
 
 ```env
 TELEGRAM_TOKEN=your-telegram-bot-token
@@ -74,43 +76,45 @@ MONGODB_USERS_COLLECTION=users
 MONGODB_TIMEOUT_MS=5000
 APP_NAME=telegram-ai-assistant
 OPENROUTER_SITE_URL=https://github.com/DmytroVrd/ai-assiastant
-DEFAULT_LANGUAGE=uk
+DEFAULT_LANGUAGE=en
 DEFAULT_TONE=friendly
 HISTORY_WINDOW=20
 REQUEST_TIMEOUT_SECONDS=45
 ```
 
-## MongoDB Atlas
+## MongoDB Atlas notes
 
-Щоб пам'ять працювала стабільно:
+To keep memory working reliably:
 
-- додай свій поточний IP у `Network Access`
-- перевір правильність `database user` і пароля
-- встав повний `mongodb+srv://...` рядок у `.env`
-- після зміни IP або мережі за потреби онови allowlist в Atlas
+- add your current IP to `Network Access`
+- verify the database username and password
+- paste the full `mongodb+srv://...` string into `.env`
+- if your IP or network changes, update the Atlas allowlist
 
-## Команди
+## Commands
 
-- `/start` — старт і коротка інструкція
-- `/remember <факт>` — явно зберегти факт
-- `/forget <запит>` — видалити факт або групу фактів
-- `/facts` — показати, що саме зараз лежить у пам'яті
-- `/summary` — короткий підсумок пам'яті про користувача
-- `/clear` — очистити історію діалогу, не видаляючи довготривалу пам'ять
+- `/start` — start the bot and show a short intro
+- `/remember <fact>` — store a fact explicitly
+- `/forget <query>` — remove a fact or a group of matching facts
+- `/facts` — show the exact items stored in memory
+- `/summary` — show a short user memory summary
+- `/clear` — clear dialog history without removing long-term memory
+- `/language <en|uk>` — switch the bot interface language
 
-## Демонстрація
+## Demo flow
 
-Типовий сценарій:
+Typical flow:
 
-1. Користувач запускає `/start`
-2. Зберігає факт через `/remember`
-3. Бот записує факт у MongoDB
-4. На наступне питання бот відповідає вже з урахуванням контексту
-5. Через `/facts` або `/summary` можна побачити, що саме збережено
+1. The user starts the bot with `/start`
+2. Stores a fact with `/remember`
+3. The bot writes that fact into MongoDB
+4. On the next question, the bot answers using the saved context
+5. `/facts` and `/summary` show what was stored
+6. `/language uk` switches the bot UI to Ukrainian
 
-## Скріншоти
+## Screenshots
 
-Поклади скріншоти в `docs/screenshots/` з такими назвами:
+Use English screenshots in `docs/screenshots/` with these names:
 
 - `start.png`
 - `remember-and-reply.png`
@@ -118,21 +122,19 @@ REQUEST_TIMEOUT_SECONDS=45
 - `forget.png`
 - `clear.png`
 
-Після цього в README вони відобразяться автоматично.
-
-| Старт | Запам'ятовування і персоналізація |
+| Start | Remember and personalized reply |
 | --- | --- |
-| ![Start](docs/screenshots/start.png) | ![Remember and reply](docs/screenshots/remember-and-reply.png) |
+| ![Start](docs/screenshots/start-en.png) | ![Remember and reply](docs/screenshots/remember-and-reply-en.png) |
 
-| Збережені факти | Видалення фактів |
+| Stored facts | Forget flow |
 | --- | --- |
-| ![Facts](docs/screenshots/facts.png) | ![Forget](docs/screenshots/forget.png) |
+| ![Facts](docs/screenshots/facts-en2.png) | ![Forget](docs/screenshots/forget-en.png) |
 
-| Очищення історії |
+| Clear history |
 | --- |
-| ![Clear](docs/screenshots/clear.png) |
+| ![Clear](docs/screenshots/clear-en.png) |
 
-## Приклад документа в MongoDB
+## Example MongoDB document
 
 ```json
 {
@@ -140,15 +142,15 @@ REQUEST_TIMEOUT_SECONDS=45
   "username": "dima123",
   "created_at": "2026-04-28T12:00:00Z",
   "facts": [
-    "User's name is Дмитро",
+    "User's name is Dmytro",
     "User is interested in Python and AI"
   ],
   "goals": [
-    "Вивчити AI",
-    "Зібрати портфоліо з 4 проектів"
+    "Learn AI",
+    "Build a portfolio of 4 projects"
   ],
   "preferences": {
-    "language": "uk",
+    "language": "en",
     "tone": "friendly"
   },
   "last_topics": ["AI", "Python"],
@@ -156,20 +158,20 @@ REQUEST_TIMEOUT_SECONDS=45
 }
 ```
 
-## Тестування
+## Testing
 
 ```bash
 python -m pytest
 ```
 
-## Репозиторій
+## Repository
 
 [GitHub repository](https://github.com/DmytroVrd/ai-assiastant)
 
-## Що демонструє проект
+## What this project demonstrates
 
-- інтеграцію Telegram Bot API через `aiogram`
-- роботу з LLM через OpenRouter
-- персоналізацію відповідей на основі пам'яті
-- зберігання контексту користувача в MongoDB
-- базову продуктову логіку навколо AI-асистента, а не просто один API-виклик
+- Telegram Bot API integration with `aiogram`
+- LLM integration through OpenRouter
+- bilingual bot UX with memory-backed preferences
+- MongoDB-backed user context storage
+- product-oriented AI logic beyond a single chat completion call
