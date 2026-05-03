@@ -147,7 +147,7 @@ Use English screenshots in `docs/screenshots/` with these names:
   ],
   "goals": [
     "Learn AI",
-    "Build an AI portfolio with practical projects"
+    "Get better at building AI assistants"
   ],
   "preferences": {
     "language": "en",
