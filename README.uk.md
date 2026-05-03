@@ -147,7 +147,7 @@ REQUEST_TIMEOUT_SECONDS=45
   ],
   "goals": [
     "Вивчити AI",
-    "Зібрати портфоліо з 4 проектів"
+    "Зібрати AI-портфоліо з практичних проектів"
   ],
   "preferences": {
     "language": "en",
