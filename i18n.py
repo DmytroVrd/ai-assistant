@@ -8,7 +8,6 @@ SUPPORTED_LANGUAGES = ("en", "uk")
 
 TRANSLATIONS = {
     "en": {
-        "access_denied": "This bot is available only to the owner.",
         "identity_error": "Failed to identify the user for this message.",
         "memory_offline": "Memory storage is temporarily unavailable.",
         "start_online": (
@@ -64,7 +63,6 @@ TRANSLATIONS = {
         "commands_language": "Switch bot language",
     },
     "uk": {
-        "access_denied": "Цей бот доступний тільки власнику.",
         "identity_error": "Не вдалося визначити користувача для цього повідомлення.",
         "memory_offline": "Сховище пам'яті тимчасово недоступне.",
         "start_online": (

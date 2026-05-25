@@ -11,7 +11,7 @@ Telegram bot built with `aiogram` that answers via `OpenRouter`, stores user con
 - uses saved memory in later replies
 - supports `/remember`, `/forget`, `/facts`, `/summary`, `/clear`, `/language`
 - supports both English and Ukrainian bot UI
-- restricts access to an allowed Telegram user id
+- isolates memory per Telegram user id, so multiple users can try the same bot safely
 
 ## Tech stack
 
@@ -67,7 +67,6 @@ python main.py
 
 ```env
 TELEGRAM_TOKEN=your-telegram-bot-token
-ALLOWED_TELEGRAM_USER_ID=123456789
 OPENROUTER_API_KEY=your-openrouter-api-key
 OPENROUTER_MODEL=openai/gpt-oss-120b:free
 MONGODB_URI=mongodb+srv://USERNAME:PASSWORD@cluster0.example.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
@@ -90,6 +89,10 @@ To keep memory working reliably:
 - verify the database username and password
 - paste the full `mongodb+srv://...` string into `.env`
 - if your IP or network changes, update the Atlas allowlist
+
+## Multi-user memory
+
+Each Telegram user gets a separate MongoDB document keyed by their Telegram user id. This means recruiters and other testers can try the same live bot without sharing memory or conversation history.
 
 ## Commands
 
@@ -173,5 +176,5 @@ python -m pytest
 - Telegram Bot API integration with `aiogram`
 - LLM integration through OpenRouter
 - bilingual bot UX with memory-backed preferences
-- MongoDB-backed user context storage
+- MongoDB-backed user context storage isolated per Telegram user
 - product-oriented AI logic beyond a single chat completion call

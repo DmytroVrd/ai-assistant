@@ -12,7 +12,6 @@ load_dotenv()
 
 class Settings(BaseModel):
     telegram_token: str = Field(alias="TELEGRAM_TOKEN")
-    allowed_telegram_user_id: int = Field(alias="ALLOWED_TELEGRAM_USER_ID")
     openrouter_api_key: str = Field(alias="OPENROUTER_API_KEY")
     openrouter_model: str = Field(default="openai/gpt-4o-mini", alias="OPENROUTER_MODEL")
     mongodb_uri: str = Field(default="mongodb://localhost:27017", alias="MONGODB_URI")
@@ -28,7 +27,7 @@ class Settings(BaseModel):
 
     @classmethod
     def from_env(cls) -> "Settings":
-        required = ("TELEGRAM_TOKEN", "ALLOWED_TELEGRAM_USER_ID", "OPENROUTER_API_KEY")
+        required = ("TELEGRAM_TOKEN", "OPENROUTER_API_KEY")
         missing = [name for name in required if not os.getenv(name)]
         if missing:
             joined = ", ".join(missing)

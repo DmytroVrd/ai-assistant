@@ -5,7 +5,6 @@ import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
-from aiogram.types import BotCommandScopeChat
 
 from config import get_settings
 from db import UserMemoryStore
@@ -20,11 +19,8 @@ logging.basicConfig(
 )
 
 
-async def setup_bot_commands(bot: Bot, allowed_user_id: int, language: str) -> None:
-    await bot.set_my_commands(
-        command_definitions(language),
-        scope=BotCommandScopeChat(chat_id=allowed_user_id),
-    )
+async def setup_bot_commands(bot: Bot, language: str) -> None:
+    await bot.set_my_commands(command_definitions(language))
 
 
 async def run() -> None:
@@ -37,7 +33,6 @@ async def run() -> None:
     dispatcher.include_router(build_router(memory_store, llm_client, settings))
     await setup_bot_commands(
         bot,
-        settings.allowed_telegram_user_id,
         normalize_language(settings.default_language, "en"),
     )
 

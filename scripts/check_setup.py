@@ -54,7 +54,6 @@ async def check_openrouter() -> tuple[bool, str]:
 async def main() -> None:
     settings = get_settings()
     print("Loaded settings:")
-    print(f"- ALLOWED_TELEGRAM_USER_ID={settings.allowed_telegram_user_id}")
     print(f"- OPENROUTER_MODEL={settings.openrouter_model}")
     print(f"- MONGODB_URI={settings.mongodb_uri}")
     print(f"- MONGODB_DB={settings.mongodb_db}")

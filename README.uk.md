@@ -11,7 +11,7 @@
 - використовує пам'ять у наступних відповідях
 - підтримує `/remember`, `/forget`, `/facts`, `/summary`, `/clear`, `/language`
 - має англійський і український інтерфейс бота
-- працює тільки для дозволеного Telegram user id
+- ізолює пам'ять окремо для кожного Telegram user id
 
 ## Стек
 
@@ -67,7 +67,6 @@ python main.py
 
 ```env
 TELEGRAM_TOKEN=your-telegram-bot-token
-ALLOWED_TELEGRAM_USER_ID=123456789
 OPENROUTER_API_KEY=your-openrouter-api-key
 OPENROUTER_MODEL=openai/gpt-oss-120b:free
 MONGODB_URI=mongodb+srv://USERNAME:PASSWORD@cluster0.example.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
@@ -90,6 +89,10 @@ REQUEST_TIMEOUT_SECONDS=45
 - перевір правильність `database user` і пароля
 - встав повний `mongodb+srv://...` рядок у `.env`
 - після зміни IP або мережі за потреби онови allowlist в Atlas
+
+## Пам'ять для багатьох користувачів
+
+Кожен Telegram-користувач отримує окремий документ у MongoDB за своїм Telegram user id. Завдяки цьому рекрутери та інші тестувальники можуть користуватись одним live bot без змішування пам'яті або історії діалогу.
 
 ## Команди
 
@@ -173,5 +176,5 @@ python -m pytest
 - інтеграцію Telegram Bot API через `aiogram`
 - роботу з LLM через OpenRouter
 - двомовний UX бота з пам'яттю та преференціями
-- зберігання контексту користувача в MongoDB
+- зберігання контексту користувача в MongoDB окремо для кожного Telegram user id
 - продуктову логіку навколо AI-асистента, а не просто один API-виклик

@@ -48,16 +48,11 @@ def _natural_forget_query(text: str) -> str | None:
     return None
 
 
-async def _ensure_allowed_user(message: Message, settings: Settings) -> bool:
+async def _ensure_user_identity(message: Message, settings: Settings) -> bool:
     identity = _get_user_identity(message)
     fallback_language = normalize_language(settings.default_language, "en")
     if not identity:
         await message.answer(t(fallback_language, "identity_error"))
-        return False
-
-    user_id, _ = identity
-    if user_id != settings.allowed_telegram_user_id:
-        await message.answer(t(fallback_language, "access_denied"))
         return False
 
     return True
@@ -191,7 +186,7 @@ def build_router(
 
     @router.message(Command("start"))
     async def start_handler(message: Message) -> None:
-        if not await _ensure_allowed_user(message, settings):
+        if not await _ensure_user_identity(message, settings):
             return
 
         identity = _get_user_identity(message)
@@ -214,7 +209,7 @@ def build_router(
 
     @router.message(Command("language", "lang"))
     async def language_handler(message: Message) -> None:
-        if not await _ensure_allowed_user(message, settings):
+        if not await _ensure_user_identity(message, settings):
             return
 
         payload = _command_payload(message).strip().casefold()
@@ -246,7 +241,7 @@ def build_router(
 
     @router.message(Command("remember"))
     async def remember_handler(message: Message) -> None:
-        if not await _ensure_allowed_user(message, settings):
+        if not await _ensure_user_identity(message, settings):
             return
 
         identity = _get_user_identity(message)
@@ -287,7 +282,7 @@ def build_router(
 
     @router.message(Command("forget"))
     async def forget_handler(message: Message) -> None:
-        if not await _ensure_allowed_user(message, settings):
+        if not await _ensure_user_identity(message, settings):
             return
 
         identity = _get_user_identity(message)
@@ -301,7 +296,7 @@ def build_router(
 
     @router.message(Command("facts"))
     async def facts_handler(message: Message) -> None:
-        if not await _ensure_allowed_user(message, settings):
+        if not await _ensure_user_identity(message, settings):
             return
 
         identity = _get_user_identity(message)
@@ -326,7 +321,7 @@ def build_router(
 
     @router.message(Command("summary"))
     async def summary_handler(message: Message) -> None:
-        if not await _ensure_allowed_user(message, settings):
+        if not await _ensure_user_identity(message, settings):
             return
 
         identity = _get_user_identity(message)
@@ -363,7 +358,7 @@ def build_router(
 
     @router.message(Command("clear"))
     async def clear_handler(message: Message) -> None:
-        if not await _ensure_allowed_user(message, settings):
+        if not await _ensure_user_identity(message, settings):
             return
 
         identity = _get_user_identity(message)
@@ -385,7 +380,7 @@ def build_router(
 
     @router.message()
     async def chat_handler(message: Message) -> None:
-        if not await _ensure_allowed_user(message, settings):
+        if not await _ensure_user_identity(message, settings):
             return
 
         if not message.text or not message.from_user:
