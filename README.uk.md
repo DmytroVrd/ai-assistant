@@ -74,7 +74,7 @@ MONGODB_DB=telegram_ai_assistant
 MONGODB_USERS_COLLECTION=users
 MONGODB_TIMEOUT_MS=5000
 APP_NAME=telegram-ai-assistant
-OPENROUTER_SITE_URL=https://github.com/DmytroVrd/ai-assiastant
+OPENROUTER_SITE_URL=https://github.com/DmytroVrd/ai-assistant
 DEFAULT_LANGUAGE=en
 DEFAULT_TONE=friendly
 HISTORY_WINDOW=20
@@ -169,7 +169,7 @@ python -m pytest
 
 ## Репозиторій
 
-[GitHub repository](https://github.com/DmytroVrd/ai-assiastant)
+[GitHub repository](https://github.com/DmytroVrd/ai-assistant)
 
 ## Що демонструє проект
 
