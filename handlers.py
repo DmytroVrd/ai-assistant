@@ -3,11 +3,13 @@ from __future__ import annotations
 import logging
 
 from aiogram import Router
+from aiogram.enums import ParseMode
 from aiogram.filters import Command
 from aiogram.types import BotCommandScopeChat, Message
 
 from config import Settings
 from db import MemoryUnavailableError, UserMemoryStore, is_name_related_query
+from formatting import telegram_html_from_markdown
 from i18n import command_definitions, normalize_language, t
 from llm import OpenRouterClient
 from memory import heuristic_extract_facts, merge_memories
@@ -431,9 +433,7 @@ def build_router(
                 logger.warning("MongoDB became unavailable while saving memory.")
                 memory_enabled = False
 
-        if memory_enabled:
-            await message.answer(reply)
-        else:
-            await message.answer(reply + "\n\n" + t(language, "memory_suffix"))
+        final_reply = reply if memory_enabled else reply + "\n\n" + t(language, "memory_suffix")
+        await message.answer(telegram_html_from_markdown(final_reply), parse_mode=ParseMode.HTML)
 
     return router

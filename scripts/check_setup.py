@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -11,6 +12,15 @@ if str(ROOT) not in sys.path:
 from config import get_settings
 from db import MemoryUnavailableError, UserMemoryStore
 from llm import OpenRouterClient
+
+
+def mask_mongodb_uri(uri: str) -> str:
+    parsed = urlsplit(uri)
+    if not parsed.netloc or "@" not in parsed.netloc:
+        return uri
+
+    _, host = parsed.netloc.rsplit("@", 1)
+    return urlunsplit((parsed.scheme, f"<credentials>@{host}", parsed.path, parsed.query, parsed.fragment))
 
 
 async def check_mongodb() -> tuple[bool, str]:
@@ -55,7 +65,7 @@ async def main() -> None:
     settings = get_settings()
     print("Loaded settings:")
     print(f"- OPENROUTER_MODEL={settings.openrouter_model}")
-    print(f"- MONGODB_URI={settings.mongodb_uri}")
+    print(f"- MONGODB_URI={mask_mongodb_uri(settings.mongodb_uri)}")
     print(f"- MONGODB_DB={settings.mongodb_db}")
     print(f"- MONGODB_USERS_COLLECTION={settings.mongodb_users_collection}")
 
