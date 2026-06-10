@@ -12,7 +12,6 @@ from db import MemoryUnavailableError, UserMemoryStore, is_name_related_query
 from formatting import telegram_html_from_markdown
 from i18n import command_definitions, normalize_language, t
 from llm import OpenRouterClient
-from memory import heuristic_extract_facts, merge_memories
 from schemas import ConversationTurn, ExtractedMemory
 
 
@@ -83,46 +82,15 @@ async def _set_command_language(message: Message, user_id: int, language: str) -
 
 
 async def _extract_memory(user_message: str, llm_client: OpenRouterClient) -> ExtractedMemory:
-    heuristic_memory = heuristic_extract_facts(user_message)
-    likely_personal = bool(
-        heuristic_memory.facts
-        or heuristic_memory.goals
-        or heuristic_memory.preferences
-        or any(
-            token in user_message.casefold()
-            for token in (
-                "мене",
-                "я ",
-                "мої",
-                "хочу",
-                "планую",
-                "ціль",
-                "my name",
-                "i am",
-                "i want",
-                "i plan",
-                "goal",
-            )
-        )
-    )
-
-    if not likely_personal:
-        return heuristic_memory
-
-    try:
-        llm_memory = await llm_client.extract_memory(user_message)
-    except Exception:
-        logger.exception("Falling back to heuristic memory extraction.")
-        return heuristic_memory
-    return merge_memories(heuristic_memory, llm_memory)
+    return await llm_client.extract_memory(user_message)
 
 
 async def _extract_memory_with_fallback(user_message: str, llm_client: OpenRouterClient) -> ExtractedMemory:
     try:
         return await _extract_memory(user_message, llm_client)
     except Exception:
-        logger.exception("Memory extraction failed completely.")
-        return heuristic_extract_facts(user_message)
+        logger.exception("LLM memory extraction failed; skipping automatic memory update.")
+        return ExtractedMemory()
 
 
 def _format_removed_items(language: str, removed: dict[str, list[str]]) -> str:
@@ -414,26 +382,27 @@ def build_router(
             await message.answer(t(language, "reply_error"))
             return
 
-        extracted_memory = await _extract_memory_with_fallback(message.text, llm_client)
-        if memory_enabled:
-            try:
-                await memory_store.apply_memory(user_id, extracted_memory)
-                await memory_store.append_conversation(
-                    user_id,
-                    ConversationTurn(
-                        user_msg=message.text,
-                        bot_response=reply,
-                        topics=extracted_memory.topics,
-                    ),
-                )
-                if "language" in extracted_memory.preferences:
-                    language = normalize_language(extracted_memory.preferences["language"], language)
-                    await _set_command_language(message, user_id, language)
-            except MemoryUnavailableError:
-                logger.warning("MongoDB became unavailable while saving memory.")
-                memory_enabled = False
-
         final_reply = reply if memory_enabled else reply + "\n\n" + t(language, "memory_suffix")
         await message.answer(telegram_html_from_markdown(final_reply), parse_mode=ParseMode.HTML)
+
+        if not memory_enabled:
+            return
+
+        extracted_memory = await _extract_memory_with_fallback(message.text, llm_client)
+        try:
+            await memory_store.apply_memory(user_id, extracted_memory)
+            await memory_store.append_conversation(
+                user_id,
+                ConversationTurn(
+                    user_msg=message.text,
+                    bot_response=reply,
+                    topics=extracted_memory.topics,
+                ),
+            )
+            if "language" in extracted_memory.preferences:
+                language = normalize_language(extracted_memory.preferences["language"], language)
+                await _set_command_language(message, user_id, language)
+        except MemoryUnavailableError:
+            logger.warning("MongoDB became unavailable while saving memory.")
 
     return router

@@ -1,28 +1,18 @@
+import asyncio
+
 from db import _entry_matches_query, is_name_related_query
-from memory import heuristic_extract_facts, merge_memories
+from handlers import _extract_memory_with_fallback
+from llm import parse_extracted_memory
 from schemas import ExtractedMemory
 
 
-def test_heuristic_extracts_name_age_goal_and_topics() -> None:
-    memory = heuristic_extract_facts(
-        "Мене звати Дмитро, мені 17 років. Я хочу вивчити AI і Python."
-    )
+def test_extracted_memory_defaults_to_empty_collections() -> None:
+    memory = ExtractedMemory()
 
-    assert "User's name is Дмитро" in memory.facts
-    assert "User is 17 years old" in memory.facts
-    assert any("Вивчити AI і Python" == goal for goal in memory.goals)
-    assert "AI" in memory.topics
-    assert "Python" in memory.topics
-
-
-def test_merge_memories_deduplicates_values() -> None:
-    first = ExtractedMemory(facts=["Любить Python"], topics=["Python"])
-    second = ExtractedMemory(facts=["Любить Python"], topics=["Python", "AI"])
-
-    merged = merge_memories(first, second)
-
-    assert merged.facts == ["Любить Python"]
-    assert merged.topics == ["Python", "AI"]
+    assert memory.facts == []
+    assert memory.goals == []
+    assert memory.preferences == {}
+    assert memory.topics == []
 
 
 def test_name_related_query_detection() -> None:
@@ -38,22 +28,68 @@ def test_entry_matches_partial_and_name_related_queries() -> None:
     assert not _entry_matches_query("I study Python", "mongodb", name_related=False)
 
 
-def test_heuristic_extracts_english_language_preferences() -> None:
-    memory = heuristic_extract_facts(
-        "My name is Dmytro. I am 17 years old. I want to build an AI portfolio. Please answer in English and keep it short."
+def test_extracted_memory_validates_structured_llm_output() -> None:
+    memory = ExtractedMemory.model_validate(
+        {
+            "facts": ["User's name is Dmytro"],
+            "goals": ["Build an AI assistant"],
+            "preferences": {"language": "en", "answer_style": "short"},
+            "topics": ["AI", "Telegram"],
+        }
     )
 
     assert "User's name is Dmytro" in memory.facts
-    assert "User is 17 years old" in memory.facts
-    assert "Build an AI portfolio" in memory.goals
+    assert "Build an AI assistant" in memory.goals
     assert memory.preferences["language"] == "en"
     assert memory.preferences["answer_style"] == "short"
+    assert memory.topics == ["AI", "Telegram"]
 
 
-def test_merge_memories_filters_noise_goals() -> None:
-    first = ExtractedMemory(goals=["Find out his name"])
-    second = ExtractedMemory(goals=["Build an AI portfolio"])
+def test_parses_valid_llm_memory_json() -> None:
+    memory = parse_extracted_memory(
+        '{"facts":["User works with Python"],"goals":[],"preferences":{},"topics":["Python"]}'
+    )
 
-    merged = merge_memories(first, second)
+    assert memory.facts == ["User works with Python"]
+    assert memory.topics == ["Python"]
 
-    assert merged.goals == ["Build an AI portfolio"]
+
+def test_rejects_invalid_llm_memory_json() -> None:
+    try:
+        parse_extracted_memory('{"facts":{"name":"Dmytro"},"preferences":[]}')
+    except RuntimeError as exc:
+        assert "expected schema" in str(exc)
+    else:
+        raise AssertionError("Invalid structured memory should be rejected.")
+
+
+def test_llm_extraction_result_is_used_directly() -> None:
+    expected = ExtractedMemory(
+        facts=["User's name is Dmytro"],
+        goals=["Build an AI assistant"],
+        topics=["AI"],
+    )
+
+    class FakeLLMClient:
+        async def extract_memory(self, user_message: str) -> ExtractedMemory:
+            assert user_message == "My name is Dmytro and I want to build an AI assistant."
+            return expected
+
+    result = asyncio.run(
+        _extract_memory_with_fallback(
+            "My name is Dmytro and I want to build an AI assistant.",
+            FakeLLMClient(),
+        )
+    )
+
+    assert result == expected
+
+
+def test_failed_llm_extraction_skips_automatic_memory() -> None:
+    class BrokenLLMClient:
+        async def extract_memory(self, user_message: str) -> ExtractedMemory:
+            raise RuntimeError("OpenRouter unavailable")
+
+    result = asyncio.run(_extract_memory_with_fallback("My name is Dmytro.", BrokenLLMClient()))
+
+    assert result == ExtractedMemory()

@@ -34,8 +34,7 @@ Telegram -> aiogram handlers -> MongoDB context -> OpenRouter -> reply -> MongoD
 - `handlers.py` — логіка команд і обробка повідомлень
 - `i18n.py` — переклади інтерфейсу та описів команд
 - `db.py` — робота з MongoDB та пам'яттю
-- `llm.py` — клієнт OpenRouter
-- `memory.py` — евристики для витягування фактів
+- `llm.py` — клієнт OpenRouter та структуроване витягування пам'яті через LLM
 - `schemas.py` — Pydantic-моделі
 - `scripts/check_setup.py` — швидка перевірка конфігурації
 - `tests/` — базові тести
@@ -175,6 +174,7 @@ python -m pytest
 
 - інтеграцію Telegram Bot API через `aiogram`
 - роботу з LLM через OpenRouter
+- структуроване витягування фактів, цілей, преференцій і тем через LLM
 - двомовний UX бота з пам'яттю та преференціями
 - зберігання контексту користувача в MongoDB окремо для кожного Telegram user id
 - продуктову логіку навколо AI-асистента, а не просто один API-виклик
