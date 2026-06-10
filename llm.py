@@ -13,6 +13,8 @@ from schemas import AssistantResult, ExtractedMemory
 
 logger = logging.getLogger(__name__)
 
+MEMORY_KEYS = {"facts", "goals", "preferences", "topics"}
+
 
 def parse_extracted_memory(content: object) -> ExtractedMemory:
     if not isinstance(content, str) or not content.strip():
@@ -25,6 +27,8 @@ def parse_extracted_memory(content: object) -> ExtractedMemory:
 
     if not isinstance(parsed, dict):
         raise RuntimeError("Memory extraction must be a JSON object.")
+    if set(parsed) != MEMORY_KEYS:
+        raise RuntimeError("Memory extraction JSON must contain exactly the expected keys.")
 
     try:
         return ExtractedMemory.model_validate(parsed)
@@ -40,6 +44,11 @@ def parse_assistant_result(content: object) -> AssistantResult:
         parsed = json.loads(content)
     except json.JSONDecodeError as exc:
         raise RuntimeError("Failed to decode assistant JSON.") from exc
+
+    if not isinstance(parsed, dict) or set(parsed) != {"reply", "memory"}:
+        raise RuntimeError("Assistant JSON must contain exactly reply and memory.")
+    if not isinstance(parsed["memory"], dict) or set(parsed["memory"]) != MEMORY_KEYS:
+        raise RuntimeError("Assistant memory must contain exactly the expected keys.")
 
     try:
         result = AssistantResult.model_validate(parsed)
@@ -112,18 +121,27 @@ class OpenRouterClient:
             f"Write the reply in {response_language} unless the user explicitly requests another language. "
             "Use saved context only when relevant and never invent user details. "
             "Keep the reply natural, friendly, useful, and reasonably concise. "
-            "At the same time, identify new information from the current user message that will improve "
-            "future personalization. Valuable long-term memory includes identity, background, relationships, "
-            "education, work, skills, interests, hobbies, likes, dislikes, habits, recurring activities, "
-            "ongoing projects, constraints, goals, plans, and communication preferences. "
-            "Save explicit personal interests and hobbies even when stated casually. "
+            "At the same time, build an accurate evolving profile of the user from the current message. "
+            "A detail is worth remembering when it is about the user, is likely to remain true beyond the "
+            "immediate moment, and could improve a future answer or help understand the user's personality. "
+            "This includes identity, age, location, background, relationships, education, work, skills, "
+            "interests, hobbies, favorite activities, likes, dislikes, values, role models or idols, habits, "
+            "recurring activities, ongoing projects, constraints, goals, plans, and communication preferences. "
+            "Save explicit personal interests, hobbies, locations, and role models even when stated casually. "
+            "If one message contains several useful details, save each as a separate concise item. "
             "Classify durable personal details as facts, desired future outcomes as goals, and reusable "
             "interaction choices as preferences. Questions about a subject are not personal facts. "
-            "Do not save temporary requests, hypothetical examples, information about other people, "
+            "Do not save one-off mundane actions or temporary states that will not matter later, "
+            "hypothetical examples, information about other people that is unrelated to the user, "
             "passwords, tokens, financial credentials, or inferred sensitive attributes. "
             "Extract memory only from the current user message, not from the saved context. "
             "Do not return a fact or goal if the same meaning is already present in saved context. "
             "Normalize memory into concise third-person English statements for consistent storage. "
+            "All personal profile information must go into facts, goals, or preferences. Never create "
+            "alternative keys such as interests, hobbies, location, personality, idol, or profile. "
+            "Examples of the classification policy: living in a country is a fact; loving or playing a "
+            "sport is a fact; having an idol is a fact; wanting to move abroad is a goal; asking about a "
+            "sport is not personal memory; mentioning a one-time bathroom visit is not useful memory. "
             'Return JSON only in exactly this shape: {"reply": "...", "memory": {'
             '"facts": ["..."], "goals": ["..."], "preferences": {"key": "value"}, '
             '"topics": ["..."]}}. All four memory keys are required. '
@@ -175,7 +193,9 @@ class OpenRouterClient:
                                     "Repair the response. Return JSON only with a non-empty reply string "
                                     "and a memory object containing facts, goals, preferences, and topics. "
                                     "facts, goals, and topics must be arrays of strings; preferences must "
-                                    "be an object with string values."
+                                    "be an object with string values. Do not use any other keys. Move "
+                                    "interests, hobbies, location, personality details, and role models "
+                                    "into facts."
                                 ),
                             },
                         ]

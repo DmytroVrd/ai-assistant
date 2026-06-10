@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
+import logging
 
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
 from config import Settings
 from schemas import ConversationTurn, ExtractedMemory, UserProfile
+
+
+logger = logging.getLogger(__name__)
 
 
 NAME_QUERY_MARKERS = (
@@ -158,8 +162,18 @@ class UserMemoryStore:
             )
 
         if update:
-            self._collection.update_one({"_id": user_id}, update)
+            result = self._collection.update_one({"_id": user_id}, update)
+            if result.matched_count != 1:
+                raise MemoryUnavailableError("User memory document disappeared before it could be updated.")
             self._refresh_summary_sync(user_id)
+            logger.info(
+                "Saved memory for user %s: facts=%s goals=%s preferences=%s topics=%s",
+                user_id,
+                len(memory.facts),
+                len(memory.goals),
+                len(memory.preferences),
+                len(memory.topics),
+            )
 
     async def save_explicit_fact(self, user_id: int, fact: str) -> None:
         normalized = fact.strip()
@@ -210,7 +224,7 @@ class UserMemoryStore:
             raise MemoryUnavailableError("MongoDB is unavailable.") from exc
 
     def _append_conversation_sync(self, user_id: int, turn: ConversationTurn) -> None:
-        self._collection.update_one(
+        result = self._collection.update_one(
             {"_id": user_id},
             {
                 "$push": {
@@ -222,6 +236,8 @@ class UserMemoryStore:
                 "$inc": {"messages_count": 1},
             },
         )
+        if result.matched_count != 1:
+            raise MemoryUnavailableError("User memory document disappeared before history could be saved.")
 
     async def clear_history(self, user_id: int) -> None:
         try:

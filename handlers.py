@@ -384,6 +384,14 @@ def build_router(
                 )
                 reply = result.reply
                 extracted_memory = result.memory
+                logger.info(
+                    "LLM memory extraction for user %s: facts=%s goals=%s preferences=%s topics=%s",
+                    user_id,
+                    len(extracted_memory.facts),
+                    len(extracted_memory.goals),
+                    len(extracted_memory.preferences),
+                    len(extracted_memory.topics),
+                )
             else:
                 reply = await llm_client.generate_reply(message.text, user_context, language=language)
                 extracted_memory = ExtractedMemory()

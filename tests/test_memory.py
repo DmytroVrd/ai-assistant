@@ -1,6 +1,8 @@
 import asyncio
 
-from db import _entry_matches_query, is_name_related_query
+import pytest
+
+from db import MemoryUnavailableError, UserMemoryStore, _entry_matches_query, is_name_related_query
 from handlers import _extract_memory_with_fallback
 from llm import parse_assistant_result, parse_extracted_memory
 from schemas import ExtractedMemory
@@ -58,7 +60,7 @@ def test_rejects_invalid_llm_memory_json() -> None:
     try:
         parse_extracted_memory('{"facts":{"name":"Dmytro"},"preferences":[]}')
     except RuntimeError as exc:
-        assert "expected schema" in str(exc)
+        assert "expected keys" in str(exc)
     else:
         raise AssertionError("Invalid structured memory should be rejected.")
 
@@ -80,9 +82,35 @@ def test_rejects_combined_result_without_reply() -> None:
             '{"memory":{"facts":[],"goals":[],"preferences":{},"topics":[]}}'
         )
     except RuntimeError as exc:
-        assert "expected schema" in str(exc)
+        assert "reply and memory" in str(exc)
     else:
         raise AssertionError("Combined assistant result without reply should be rejected.")
+
+
+def test_rejects_silently_discarded_profile_keys() -> None:
+    try:
+        parse_assistant_result(
+            '{"reply":"Great!","memory":{"facts":[],"goals":[],"preferences":{},'
+            '"topics":["football"],"interests":["football"],"idol":"Ronaldo"}}'
+        )
+    except RuntimeError as exc:
+        assert "expected keys" in str(exc)
+    else:
+        raise AssertionError("Unexpected profile keys must trigger an LLM repair attempt.")
+
+
+def test_accepts_multiple_personal_details_as_facts() -> None:
+    result = parse_assistant_result(
+        '{"reply":"Football is a big part of your life.",'
+        '"memory":{"facts":["The user loves playing football.",'
+        '"The user considers Ronaldo an idol."],'
+        '"goals":[],"preferences":{},"topics":["football","Ronaldo"]}}'
+    )
+
+    assert result.memory.facts == [
+        "The user loves playing football.",
+        "The user considers Ronaldo an idol.",
+    ]
 
 
 def test_llm_extraction_result_is_used_directly() -> None:
@@ -115,3 +143,21 @@ def test_failed_llm_extraction_skips_automatic_memory() -> None:
     result = asyncio.run(_extract_memory_with_fallback("My name is Dmytro.", BrokenLLMClient()))
 
     assert result == ExtractedMemory()
+
+
+def test_memory_update_does_not_fail_silently_when_user_document_is_missing() -> None:
+    class MissingDocumentResult:
+        matched_count = 0
+
+    class MissingDocumentCollection:
+        def update_one(self, *args: object, **kwargs: object) -> MissingDocumentResult:
+            return MissingDocumentResult()
+
+    store = object.__new__(UserMemoryStore)
+    store._collection = MissingDocumentCollection()
+
+    with pytest.raises(MemoryUnavailableError):
+        store._apply_memory_sync(
+            123,
+            ExtractedMemory(facts=["The user lives in Ukraine."]),
+        )
