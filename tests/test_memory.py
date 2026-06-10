@@ -2,7 +2,7 @@ import asyncio
 
 from db import _entry_matches_query, is_name_related_query
 from handlers import _extract_memory_with_fallback
-from llm import parse_extracted_memory
+from llm import parse_assistant_result, parse_extracted_memory
 from schemas import ExtractedMemory
 
 
@@ -61,6 +61,28 @@ def test_rejects_invalid_llm_memory_json() -> None:
         assert "expected schema" in str(exc)
     else:
         raise AssertionError("Invalid structured memory should be rejected.")
+
+
+def test_parses_combined_reply_and_memory() -> None:
+    result = parse_assistant_result(
+        '{"reply":"Football is a great hobby!",'
+        '"memory":{"facts":["The user enjoys playing football."],'
+        '"goals":[],"preferences":{},"topics":["football"]}}'
+    )
+
+    assert result.reply == "Football is a great hobby!"
+    assert result.memory.facts == ["The user enjoys playing football."]
+
+
+def test_rejects_combined_result_without_reply() -> None:
+    try:
+        parse_assistant_result(
+            '{"memory":{"facts":[],"goals":[],"preferences":{},"topics":[]}}'
+        )
+    except RuntimeError as exc:
+        assert "expected schema" in str(exc)
+    else:
+        raise AssertionError("Combined assistant result without reply should be rejected.")
 
 
 def test_llm_extraction_result_is_used_directly() -> None:

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-from contextlib import suppress
 import logging
 
 from aiogram import Router
@@ -377,18 +375,19 @@ def build_router(
             memory_enabled = False
             logger.warning("MongoDB unavailable during chat handling; continuing without memory.")
 
-        extraction_task = (
-            asyncio.create_task(_extract_memory_with_fallback(message.text, llm_client))
-            if memory_enabled
-            else None
-        )
         try:
-            reply = await llm_client.generate_reply(message.text, user_context, language=language)
+            if memory_enabled:
+                result = await llm_client.generate_reply_with_memory(
+                    message.text,
+                    user_context,
+                    language=language,
+                )
+                reply = result.reply
+                extracted_memory = result.memory
+            else:
+                reply = await llm_client.generate_reply(message.text, user_context, language=language)
+                extracted_memory = ExtractedMemory()
         except Exception:
-            if extraction_task:
-                extraction_task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await extraction_task
             logger.exception("Failed to generate assistant reply.")
             await message.answer(t(language, "reply_error"))
             return
@@ -398,7 +397,6 @@ def build_router(
             await message.answer(telegram_html_from_markdown(final_reply), parse_mode=ParseMode.HTML)
             return
 
-        extracted_memory = await extraction_task if extraction_task else ExtractedMemory()
         try:
             await memory_store.apply_memory(user_id, extracted_memory)
             await memory_store.append_conversation(

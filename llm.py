@@ -8,7 +8,7 @@ import httpx
 from pydantic import ValidationError
 
 from config import Settings
-from schemas import ExtractedMemory
+from schemas import AssistantResult, ExtractedMemory
 
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,25 @@ def parse_extracted_memory(content: object) -> ExtractedMemory:
         return ExtractedMemory.model_validate(parsed)
     except ValidationError as exc:
         raise RuntimeError("Memory extraction JSON does not match the expected schema.") from exc
+
+
+def parse_assistant_result(content: object) -> AssistantResult:
+    if not isinstance(content, str) or not content.strip():
+        raise RuntimeError("OpenRouter returned empty assistant content.")
+
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Failed to decode assistant JSON.") from exc
+
+    try:
+        result = AssistantResult.model_validate(parsed)
+    except ValidationError as exc:
+        raise RuntimeError("Assistant JSON does not match the expected schema.") from exc
+
+    if not result.reply.strip():
+        raise RuntimeError("Assistant reply is empty.")
+    return result
 
 
 class OpenRouterClient:
@@ -78,6 +97,91 @@ class OpenRouterClient:
         except (KeyError, IndexError, TypeError) as exc:
             logger.exception("Unexpected OpenRouter response: %s", data)
             raise RuntimeError("OpenRouter returned an unexpected response payload.") from exc
+
+    async def generate_reply_with_memory(
+        self,
+        user_message: str,
+        user_context: str,
+        *,
+        language: str = "en",
+    ) -> AssistantResult:
+        response_language = "Ukrainian" if language == "uk" else "English"
+        empty_context = "No saved context yet."
+        prompt = (
+            "You are a warm, practical personal assistant with long-term memory. "
+            f"Write the reply in {response_language} unless the user explicitly requests another language. "
+            "Use saved context only when relevant and never invent user details. "
+            "Keep the reply natural, friendly, useful, and reasonably concise. "
+            "At the same time, identify new information from the current user message that will improve "
+            "future personalization. Valuable long-term memory includes identity, background, relationships, "
+            "education, work, skills, interests, hobbies, likes, dislikes, habits, recurring activities, "
+            "ongoing projects, constraints, goals, plans, and communication preferences. "
+            "Save explicit personal interests and hobbies even when stated casually. "
+            "Classify durable personal details as facts, desired future outcomes as goals, and reusable "
+            "interaction choices as preferences. Questions about a subject are not personal facts. "
+            "Do not save temporary requests, hypothetical examples, information about other people, "
+            "passwords, tokens, financial credentials, or inferred sensitive attributes. "
+            "Extract memory only from the current user message, not from the saved context. "
+            "Do not return a fact or goal if the same meaning is already present in saved context. "
+            "Normalize memory into concise third-person English statements for consistent storage. "
+            'Return JSON only in exactly this shape: {"reply": "...", "memory": {'
+            '"facts": ["..."], "goals": ["..."], "preferences": {"key": "value"}, '
+            '"topics": ["..."]}}. All four memory keys are required. '
+            "Use empty arrays or an empty object when there is nothing to save."
+        )
+        messages = [
+            {"role": "system", "content": prompt},
+            {
+                "role": "user",
+                "content": (
+                    f"Saved user context:\n{user_context or empty_context}\n\n"
+                    f"Current user message:\n{user_message}"
+                ),
+            },
+        ]
+        last_error: Exception | None = None
+
+        for attempt in range(2):
+            payload = {
+                "model": self._settings.openrouter_model,
+                "messages": messages,
+                "response_format": {"type": "json_object"},
+                "temperature": 0,
+            }
+            response = await self._client.post("/chat/completions", json=payload)
+            response.raise_for_status()
+            data = response.json()
+            try:
+                content = data["choices"][0]["message"]["content"]
+            except (KeyError, IndexError, TypeError) as exc:
+                last_error = RuntimeError("OpenRouter returned an unexpected assistant payload.")
+                if attempt == 0:
+                    await asyncio.sleep(0.5)
+                    continue
+                raise last_error from exc
+
+            try:
+                return parse_assistant_result(content)
+            except RuntimeError as exc:
+                last_error = exc
+                logger.warning("Invalid combined assistant response on attempt %s.", attempt + 1)
+                if attempt == 0:
+                    messages.extend(
+                        [
+                            {"role": "assistant", "content": content or ""},
+                            {
+                                "role": "user",
+                                "content": (
+                                    "Repair the response. Return JSON only with a non-empty reply string "
+                                    "and a memory object containing facts, goals, preferences, and topics. "
+                                    "facts, goals, and topics must be arrays of strings; preferences must "
+                                    "be an object with string values."
+                                ),
+                            },
+                        ]
+                    )
+
+        raise RuntimeError("OpenRouter failed to return a valid assistant result.") from last_error
 
     async def extract_memory(self, user_message: str) -> ExtractedMemory:
         prompt = (

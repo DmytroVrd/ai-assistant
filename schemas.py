@@ -19,6 +19,11 @@ class ExtractedMemory(BaseModel):
     topics: list[str] = Field(default_factory=list)
 
 
+class AssistantResult(BaseModel):
+    reply: str
+    memory: ExtractedMemory = Field(default_factory=ExtractedMemory)
+
+
 class UserProfile(BaseModel):
     user_id: int
     username: str | None = None
@@ -31,4 +36,3 @@ class UserProfile(BaseModel):
     summary: str = ""
     last_topics: list[str] = Field(default_factory=list)
     messages_count: int = 0
-
