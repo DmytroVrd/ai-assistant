@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+from contextlib import suppress
 import logging
 
 from aiogram import Router
@@ -375,20 +377,28 @@ def build_router(
             memory_enabled = False
             logger.warning("MongoDB unavailable during chat handling; continuing without memory.")
 
+        extraction_task = (
+            asyncio.create_task(_extract_memory_with_fallback(message.text, llm_client))
+            if memory_enabled
+            else None
+        )
         try:
             reply = await llm_client.generate_reply(message.text, user_context, language=language)
         except Exception:
+            if extraction_task:
+                extraction_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await extraction_task
             logger.exception("Failed to generate assistant reply.")
             await message.answer(t(language, "reply_error"))
             return
 
-        final_reply = reply if memory_enabled else reply + "\n\n" + t(language, "memory_suffix")
-        await message.answer(telegram_html_from_markdown(final_reply), parse_mode=ParseMode.HTML)
-
         if not memory_enabled:
+            final_reply = reply + "\n\n" + t(language, "memory_suffix")
+            await message.answer(telegram_html_from_markdown(final_reply), parse_mode=ParseMode.HTML)
             return
 
-        extracted_memory = await _extract_memory_with_fallback(message.text, llm_client)
+        extracted_memory = await extraction_task if extraction_task else ExtractedMemory()
         try:
             await memory_store.apply_memory(user_id, extracted_memory)
             await memory_store.append_conversation(
@@ -404,5 +414,9 @@ def build_router(
                 await _set_command_language(message, user_id, language)
         except MemoryUnavailableError:
             logger.warning("MongoDB became unavailable while saving memory.")
+            memory_enabled = False
+
+        final_reply = reply if memory_enabled else reply + "\n\n" + t(language, "memory_suffix")
+        await message.answer(telegram_html_from_markdown(final_reply), parse_mode=ParseMode.HTML)
 
     return router

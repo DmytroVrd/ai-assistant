@@ -81,14 +81,21 @@ class OpenRouterClient:
 
     async def extract_memory(self, user_message: str) -> ExtractedMemory:
         prompt = (
-            "You extract structured long-term memory for a personal assistant. "
-            "Extract only information explicitly stated about the user. "
+            "You are the long-term memory manager for a personal AI assistant. "
+            "Decide what information from the current message will improve future personalization. "
+            "Extract only information explicitly stated as true about the user. "
+            "Useful memory includes identity and background, relationships, education or work, "
+            "skills, interests, hobbies, likes and dislikes, habits, recurring activities, "
+            "ongoing projects, constraints, goals, plans, and communication preferences. "
+            "Interests and hobbies such as loving a sport belong in facts. "
             "Do not treat questions, assistant instructions, hypothetical examples, "
-            "or facts about other people as user memory. "
-            "Keep only information that could be useful in future conversations. "
+            "temporary requests, or facts about other people as user memory. "
+            "Do not store passwords, authentication tokens, financial credentials, or other secrets. "
+            "When uncertain, save a user-stated detail if remembering it could make a later response "
+            "more relevant, personal, or convenient. "
             'Return JSON exactly in this shape: {"facts": ["..."], "goals": ["..."], '
             '"preferences": {"tone": "..."}, "topics": ["..."]}. '
-            "facts: concise stable facts about the user. "
+            "facts: concise durable facts about the user, including interests and hobbies. "
             "goals: explicit user goals or plans, not the purpose of a question. "
             "preferences: only explicit reusable preferences such as language, tone, or answer style. "
             "topics: up to three concise topics from the current message. "
